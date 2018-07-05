@@ -4,12 +4,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.librepdf</groupId>
+        <groupId>com.github.glue</groupId>
         <artifactId>openpdf-parent</artifactId>
         <version>1.0.6-SNAPSHOT</version>
     </parent>
 
-    <artifactId>openpdf</artifactId>
+    <artifactId>openpdf-glue</artifactId>
 
     <properties>
         <bouncycastle.version>1.58</bouncycastle.version>

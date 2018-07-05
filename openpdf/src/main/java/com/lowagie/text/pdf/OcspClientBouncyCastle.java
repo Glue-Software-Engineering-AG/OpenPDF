@@ -129,10 +129,12 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 
 import com.lowagie.text.ExceptionConverter;
 import com.lowagie.text.error_messages.MessageLocalization;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * OcspClient implementation using BouncyCastle.
- * 
+ *
  * @author psoares
  * @since 2.1.6
  */
@@ -140,13 +142,13 @@ public class OcspClientBouncyCastle implements OcspClient {
   /** root certificate */
   private final X509Certificate rootCert;
   /** check certificate */
-  private final X509Certificate checkCert;
+  List<X509Certificate> checkCerts = new ArrayList<X509Certificate>();
   /** OCSP URL */
   private final String url;
 
   /**
    * Creates an instance of an OcspClient that will be using BouncyCastle.
-   * 
+   *
    * @param checkCert
    *          the check certificate
    * @param rootCert
@@ -156,14 +158,31 @@ public class OcspClientBouncyCastle implements OcspClient {
    */
   public OcspClientBouncyCastle(X509Certificate checkCert,
       X509Certificate rootCert, String url) {
-    this.checkCert = checkCert;
+    this.checkCerts.add(checkCert);
+    this.rootCert = rootCert;
+    this.url = url;
+  }
+
+
+   /**
+   * Creates an instance of an OcspClient that will be using BouncyCastle.
+   *
+   * @param checkCerts
+   *          the check certificates
+   * @param rootCert
+   *          the root certificate
+   * @param url
+   *          the OCSP URL
+   */
+  public OcspClientBouncyCastle(List<X509Certificate> checkCerts, X509Certificate rootCert, String url) {
+    this.checkCerts = checkCerts;
     this.rootCert = rootCert;
     this.url = url;
   }
 
   /**
    * Generates an OCSP request using BouncyCastle.
-   * 
+   *
    * @param issuerCert
    *          certificate of the issues
    * @param serialNumber
@@ -173,7 +192,7 @@ public class OcspClientBouncyCastle implements OcspClient {
    * @throws IOException
    */
   private static OCSPReq generateOCSPRequest(X509Certificate issuerCert,
-      BigInteger serialNumber) throws OCSPException, IOException,
+      List<X509Certificate> checkCerts) throws OCSPException, IOException,
       OperatorCreationException, CertificateEncodingException {
     // Add provider BC
     Provider prov = new org.bouncycastle.jce.provider.BouncyCastleProvider();
@@ -189,14 +208,14 @@ public class OcspClientBouncyCastle implements OcspClient {
     DigestCalculatorProvider digCalcProv = new JcaDigestCalculatorProviderBuilder()
         .setProvider(prov).build();
 
-    CertificateID id = new CertificateID(
-        digCalcProv.get(CertificateID.HASH_SHA1), new JcaX509CertificateHolder(
-            issuerCert), serialNumber);
-
     // basic request generation with nonce
     OCSPReqBuilder gen = new OCSPReqBuilder();
-
-    gen.addRequest(id);
+    for (X509Certificate cert : checkCerts){
+      // Generate the id for the certificate we are looking for
+      CertificateID id = new CertificateID(digCalcProv.get(CertificateID.HASH_SHA1), new JcaX509CertificateHolder(
+            issuerCert), cert.getSerialNumber());
+      gen.addRequest(id);
+    }
 
     // create details for nonce extension
     // Vector oids = new Vector();
@@ -228,8 +247,7 @@ public class OcspClientBouncyCastle implements OcspClient {
   @Override
   public byte[] getEncoded() {
     try {
-      OCSPReq request = generateOCSPRequest(rootCert,
-          checkCert.getSerialNumber());
+      OCSPReq request = generateOCSPRequest(rootCert, checkCerts);
       byte[] array = request.getEncoded();
       URL urlt = new URL(url);
       HttpURLConnection con = (HttpURLConnection) urlt.openConnection();

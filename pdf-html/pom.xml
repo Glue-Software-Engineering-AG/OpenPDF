@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.librepdf</groupId>
+        <groupId>com.github.glue</groupId>
         <artifactId>openpdf-parent</artifactId>
         <version>1.0.6-SNAPSHOT</version>
     </parent>
@@ -13,13 +13,13 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.github.librepdf</groupId>
+            <groupId>com.github.glue</groupId>
             <artifactId>pdf-xml</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.github.librepdf</groupId>
-            <artifactId>openpdf</artifactId>
+            <groupId>com.github.glue</groupId>
+            <artifactId>openpdf-glue</artifactId>
             <version>${project.version}</version>
         </dependency>
 

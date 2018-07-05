@@ -113,9 +113,10 @@ import org.bouncycastle.jce.provider.X509CertParser;
 import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.tsp.TimeStampToken;
-
+import java.util.List;
 import com.lowagie.text.ExceptionConverter;
 import com.lowagie.text.error_messages.MessageLocalization;
+import org.bouncycastle.asn1.BERTaggedObject;
 
 /**
  * This class does all the processing related to signing and verifying a PKCS#7
@@ -246,7 +247,7 @@ public class PdfPKCS7 {
 
   /**
    * Gets the digest name for a certain id
-   * 
+   *
    * @param oid
    *          an id (for instance "1.2.840.113549.2.5")
    * @return a digest name (for instance "MD5")
@@ -262,7 +263,7 @@ public class PdfPKCS7 {
 
   /**
    * Gets the algorithm name for a certain id.
-   * 
+   *
    * @param oid
    *          an id (for instance "1.2.840.113549.1.1.1")
    * @return an algorithm name (for instance "RSA")
@@ -278,7 +279,7 @@ public class PdfPKCS7 {
 
   /**
    * Gets the timestamp token if there is one.
-   * 
+   *
    * @return the timestamp token or null
    * @since 2.1.6
    */
@@ -288,7 +289,7 @@ public class PdfPKCS7 {
 
   /**
    * Gets the timestamp date
-   * 
+   *
    * @return a date
    * @since 2.1.6
    */
@@ -303,7 +304,7 @@ public class PdfPKCS7 {
 
   /**
    * Verifies a signature using the sub-filter adbe.x509.rsa_sha1.
-   * 
+   *
    * @param contentsKey
    *          the /Contents key
    * @param certsKey
@@ -337,7 +338,7 @@ public class PdfPKCS7 {
 
   /**
    * Gets the OCSP basic response if there is one.
-   * 
+   *
    * @return the OCSP basic response or null
    * @since 2.1.6
    */
@@ -383,7 +384,7 @@ public class PdfPKCS7 {
   /**
    * Verifies a signature using the sub-filter adbe.pkcs7.detached or
    * adbe.pkcs7.sha1.
-   * 
+   *
    * @param contentsKey
    *          the /Contents key
    * @param provider
@@ -419,8 +420,11 @@ public class PdfPKCS7 {
         throw new IllegalArgumentException(
             MessageLocalization
                 .getComposedMessage("not.a.valid.pkcs.7.object.not.signed.data"));
-      ASN1Sequence content = (ASN1Sequence) ((DERTaggedObject) signedData
-          .getObjectAt(1)).getObject();
+      ASN1Sequence content = (ASN1Sequence) (
+          (signedData.getObjectAt(1) instanceof BERTaggedObject) ?
+          (BERTaggedObject) signedData.getObjectAt(1) :
+          (DERTaggedObject) signedData.getObjectAt(1))
+          .getObject();
       // the positions that we care are:
       // 0 - version
       // 1 - digestAlgorithms
@@ -458,7 +462,8 @@ public class PdfPKCS7 {
 
       // the signerInfos
       int next = 3;
-      while (content.getObjectAt(next) instanceof DERTaggedObject)
+     while (content.getObjectAt(next) instanceof DERTaggedObject ||
+             content.getObjectAt(next) instanceof BERTaggedObject)
         ++next;
       ASN1Set signerInfos = (ASN1Set) content.getObjectAt(next);
       if (signerInfos.size() != 1)
@@ -565,7 +570,7 @@ public class PdfPKCS7 {
 
   /**
    * Generates a signature.
-   * 
+   *
    * @param privKey
    *          the private key
    * @param certChain
@@ -655,7 +660,7 @@ public class PdfPKCS7 {
   /**
    * Update the digest with the specified bytes. This method is used both for
    * signing and verifying
-   * 
+   *
    * @param buf
    *          the data buffer
    * @param off
@@ -674,7 +679,7 @@ public class PdfPKCS7 {
 
   /**
    * Verify the digest.
-   * 
+   *
    * @throws SignatureException
    *           on error
    * @return <CODE>true</CODE> if the signature checks out, <CODE>false</CODE>
@@ -702,7 +707,7 @@ public class PdfPKCS7 {
 
   /**
    * Checks if the timestamp refers to this document.
-   * 
+   *
    * @throws java.security.NoSuchAlgorithmException
    *           on error
    * @return true if it checks false otherwise
@@ -723,7 +728,7 @@ public class PdfPKCS7 {
    * Get all the X.509 certificates associated with this PKCS#7 object in no
    * particular order. Other certificates, from OCSP for example, will also be
    * included.
-   * 
+   *
    * @return the X.509 certificates associated with this PKCS#7 object
    */
   public Certificate[] getCertificates() {
@@ -734,7 +739,7 @@ public class PdfPKCS7 {
    * Get the X.509 sign certificate chain associated with this PKCS#7 object.
    * Only the certificates used for the main signature will be returned, with
    * the signing certificate first.
-   * 
+   *
    * @return the X.509 certificates associated with this PKCS#7 object
    * @since 2.1.6
    */
@@ -779,7 +784,7 @@ public class PdfPKCS7 {
   /**
    * Get the X.509 certificate revocation lists associated with this PKCS#7
    * object
-   * 
+   *
    * @return the X.509 certificate revocation lists associated with this PKCS#7
    *         object
    */
@@ -789,7 +794,7 @@ public class PdfPKCS7 {
 
   /**
    * Get the X.509 certificate actually used to sign the digest.
-   * 
+   *
    * @return the X.509 certificate actually used to sign the digest
    */
   public X509Certificate getSigningCertificate() {
@@ -798,7 +803,7 @@ public class PdfPKCS7 {
 
   /**
    * Get the version of the PKCS#7 object. Always 1
-   * 
+   *
    * @return the version of the PKCS#7 object. Always 1
    */
   public int getVersion() {
@@ -807,7 +812,7 @@ public class PdfPKCS7 {
 
   /**
    * Get the version of the PKCS#7 "SignerInfo" object. Always 1
-   * 
+   *
    * @return the version of the PKCS#7 "SignerInfo" object. Always 1
    */
   public int getSigningInfoVersion() {
@@ -816,7 +821,7 @@ public class PdfPKCS7 {
 
   /**
    * Get the algorithm used to calculate the message digest
-   * 
+   *
    * @return the algorithm used to calculate the message digest
    */
   public String getDigestAlgorithm() {
@@ -829,7 +834,7 @@ public class PdfPKCS7 {
 
   /**
    * Returns the algorithm.
-   * 
+   *
    * @return the digest algorithm
    */
   public String getHashAlgorithm() {
@@ -839,7 +844,7 @@ public class PdfPKCS7 {
   /**
    * Loads the default root certificates at
    * &lt;java.home&gt;/lib/security/cacerts with the default provider.
-   * 
+   *
    * @return a <CODE>KeyStore</CODE>
    */
   public static KeyStore loadCacertsKeyStore() {
@@ -849,7 +854,7 @@ public class PdfPKCS7 {
   /**
    * Loads the default root certificates at
    * &lt;java.home&gt;/lib/security/cacerts.
-   * 
+   *
    * @param provider
    *          the provider or <code>null</code> for the default provider
    * @return a <CODE>KeyStore</CODE>
@@ -882,7 +887,7 @@ public class PdfPKCS7 {
 
   /**
    * Verifies a single certificate.
-   * 
+   *
    * @param cert
    *          the certificate to verify
    * @param crls
@@ -914,7 +919,7 @@ public class PdfPKCS7 {
 
   /**
    * Verifies a certificate chain against a KeyStore.
-   * 
+   *
    * @param certs
    *          the certificate chain
    * @param keystore
@@ -1051,7 +1056,7 @@ public class PdfPKCS7 {
 
   /**
    * Retrieves the OCSP URL from the given certificate.
-   * 
+   *
    * @param certificate
    *          the certificate
    * @return the URL or null
@@ -1093,7 +1098,7 @@ public class PdfPKCS7 {
 
   /**
    * Checks if OCSP revocation refers to the document signing certificate.
-   * 
+   *
    * @return true if it checks false otherwise
    * @since 2.1.6
    */
@@ -1146,7 +1151,7 @@ public class PdfPKCS7 {
 
   /**
    * Get the "issuer" from the TBSCertificate bytes that are passed in
-   * 
+   *
    * @param enc
    *          a TBSCertificate in a byte array
    * @return a ASN1Primitive
@@ -1164,7 +1169,7 @@ public class PdfPKCS7 {
 
   /**
    * Get the "subject" from the TBSCertificate bytes that are passed in
-   * 
+   *
    * @param enc
    *          A TBSCertificate in a byte array
    * @return a ASN1Primitive
@@ -1182,7 +1187,7 @@ public class PdfPKCS7 {
 
   /**
    * Get the issuer fields from an X509 Certificate
-   * 
+   *
    * @param cert
    *          an X509Certificate
    * @return an X509Name
@@ -1197,7 +1202,7 @@ public class PdfPKCS7 {
 
   /**
    * Get the subject fields from an X509 Certificate
-   * 
+   *
    * @param cert
    *          an X509Certificate
    * @return an X509Name
@@ -1212,7 +1217,7 @@ public class PdfPKCS7 {
 
   /**
    * Gets the bytes for the PKCS#1 object.
-   * 
+   *
    * @return a byte array
    */
   public byte[] getEncodedPKCS1() {
@@ -1235,7 +1240,7 @@ public class PdfPKCS7 {
 
   /**
    * Sets the digest/signature to an external calculated value.
-   * 
+   *
    * @param digest
    *          the digest. This is the actual signature
    * @param RSAdata
@@ -1264,7 +1269,7 @@ public class PdfPKCS7 {
 
   /**
    * Gets the bytes for the PKCS7SignedData object.
-   * 
+   *
    * @return the bytes for the PKCS7SignedData object
    */
   public byte[] getEncodedPKCS7() {
@@ -1275,7 +1280,7 @@ public class PdfPKCS7 {
    * Gets the bytes for the PKCS7SignedData object. Optionally the
    * authenticatedAttributes in the signerInfo can also be set. If either of the
    * parameters is <CODE>null</CODE>, none will be used.
-   * 
+   *
    * @param secondDigest
    *          the digest in the authenticatedAttributes
    * @param signingTime
@@ -1290,7 +1295,7 @@ public class PdfPKCS7 {
    * Gets the bytes for the PKCS7SignedData object. Optionally the
    * authenticatedAttributes in the signerInfo can also be set, OR a
    * time-stamp-authority client may be provided.
-   * 
+   *
    * @param secondDigest
    *          the digest in the authenticatedAttributes
    * @param signingTime
@@ -1401,6 +1406,18 @@ public class PdfPKCS7 {
       body.add(contentinfo);
       body.add(new DERTaggedObject(false, 0, dercertificates));
 
+      if (!crls.isEmpty())
+      {
+        v = new ASN1EncodableVector();
+        for (Iterator i = crls.iterator(); i.hasNext();)
+        {
+          ASN1InputStream t = new ASN1InputStream(new ByteArrayInputStream(((X509CRL) i.next()).getEncoded()));
+          v.add(t.readObject());
+        }
+        DERSet dercrls = new DERSet(v);
+        body.add(new DERTaggedObject(false, 1, dercrls));
+      }
+
       // Only allow one signerInfo
       body.add(new DERSet(new DERSequence(signerinfo)));
 
@@ -1428,7 +1445,7 @@ public class PdfPKCS7 {
    * start with the timeStampToken (signedData 1.2.840.113549.1.7.2). Token is
    * the TSA response without response status, which is usually handled by the
    * (vendor supplied) TSA request/response interface).
-   * 
+   *
    * @param timeStampToken
    *          byte[] - time stamp token, DER encoded signedData
    * @return ASN1EncodableVector
@@ -1465,7 +1482,7 @@ public class PdfPKCS7 {
    * <p>
    * A simple example:
    * <p>
-   * 
+   *
    * <pre>
    * Calendar cal = Calendar.getInstance();
    * PdfPKCS7 pk7 = new PdfPKCS7(key, chain, null, &quot;SHA1&quot;, null, false);
@@ -1481,7 +1498,7 @@ public class PdfPKCS7 {
    * pk7.update(sh, 0, sh.length);
    * byte sg[] = pk7.getEncodedPKCS7(hash, cal);
    * </pre>
-   * 
+   *
    * @param secondDigest
    *          the content digest
    * @param signingTime
@@ -1507,44 +1524,63 @@ public class PdfPKCS7 {
       v.add(new ASN1ObjectIdentifier(ID_CONTENT_TYPE));
       v.add(new DERSet(new ASN1ObjectIdentifier(ID_PKCS7_DATA)));
       attribute.add(new DERSequence(v));
+
       v = new ASN1EncodableVector();
       v.add(new ASN1ObjectIdentifier(ID_SIGNING_TIME));
       v.add(new DERSet(new DERUTCTime(signingTime.getTime())));
       attribute.add(new DERSequence(v));
+
       v = new ASN1EncodableVector();
       v.add(new ASN1ObjectIdentifier(ID_MESSAGE_DIGEST));
       v.add(new DERSet(new DEROctetString(secondDigest)));
       attribute.add(new DERSequence(v));
-      if (ocsp != null) {
+
+
+      List<DERTaggedObject> revocObjects = new ArrayList<>();
+
+       if (ocsp != null && !crls.isEmpty())
+      {
         v = new ASN1EncodableVector();
         v.add(new ASN1ObjectIdentifier(ID_ADBE_REVOCATION));
+
+        ASN1EncodableVector v2 = new ASN1EncodableVector();
+        for (Iterator i = crls.iterator(); i.hasNext();)
+        {
+          ASN1InputStream t = new ASN1InputStream(new ByteArrayInputStream(((X509CRL) i.next()).getEncoded()));
+          v2.add(t.readObject());
+        }
+
+        DERTaggedObject crlObj = new DERTaggedObject(true, 0, new DERSequence(v2));
+
+
         DEROctetString doctet = new DEROctetString(ocsp);
         ASN1EncodableVector vo1 = new ASN1EncodableVector();
-        ASN1EncodableVector v2 = new ASN1EncodableVector();
-        v2.add(OCSPObjectIdentifiers.id_pkix_ocsp_basic);
-        v2.add(doctet);
+
+        ASN1EncodableVector v4 = new ASN1EncodableVector();
+        v4.add(OCSPObjectIdentifiers.id_pkix_ocsp_basic);
+        v4.add(doctet);
         ASN1Enumerated den = new ASN1Enumerated(0);
         ASN1EncodableVector v3 = new ASN1EncodableVector();
         v3.add(den);
-        v3.add(new DERTaggedObject(true, 0, new DERSequence(v2)));
+        v3.add(new DERTaggedObject(true, 0, new DERSequence(v4)));
         vo1.add(new DERSequence(v3));
-        v.add(new DERSet(new DERSequence(new DERTaggedObject(true, 1,
-            new DERSequence(vo1)))));
-        attribute.add(new DERSequence(v));
-      } else if (!crls.isEmpty()) {
-        v = new ASN1EncodableVector();
-        v.add(new ASN1ObjectIdentifier(ID_ADBE_REVOCATION));
-        ASN1EncodableVector v2 = new ASN1EncodableVector();
-        for (Iterator i = crls.iterator(); i.hasNext();) {
-          ASN1InputStream t = new ASN1InputStream(new ByteArrayInputStream(
-              ((X509CRL) i.next()).getEncoded()));
-          v2.add(t.readObject());
-        }
-        v.add(new DERSet(new DERSequence(new DERTaggedObject(true, 0,
-            new DERSequence(v2)))));
+
+        DERTaggedObject ocspObj = new DERTaggedObject(true, 1, new DERSequence(vo1));
+
+        DERTaggedObject[] revocObjs = new DERTaggedObject[]
+        {
+          crlObj, ocspObj
+        };
+
+        DERSequence revocInfoSeq = new DERSequence(revocObjs);
+
+        v.add(new DERSet(revocInfoSeq));
+
         attribute.add(new DERSequence(v));
       }
+
       return new DERSet(attribute);
+
     } catch (Exception e) {
       throw new ExceptionConverter(e);
     }
@@ -1552,7 +1588,7 @@ public class PdfPKCS7 {
 
   /**
    * Getter for property reason.
-   * 
+   *
    * @return Value of property reason.
    */
   public String getReason() {
@@ -1561,7 +1597,7 @@ public class PdfPKCS7 {
 
   /**
    * Setter for property reason.
-   * 
+   *
    * @param reason
    *          New value of property reason.
    */
@@ -1571,7 +1607,7 @@ public class PdfPKCS7 {
 
   /**
    * Getter for property location.
-   * 
+   *
    * @return Value of property location.
    */
   public String getLocation() {
@@ -1580,7 +1616,7 @@ public class PdfPKCS7 {
 
   /**
    * Setter for property location.
-   * 
+   *
    * @param location
    *          New value of property location.
    */
@@ -1590,7 +1626,7 @@ public class PdfPKCS7 {
 
   /**
    * Getter for property signDate.
-   * 
+   *
    * @return Value of property signDate.
    */
   public Calendar getSignDate() {
@@ -1599,7 +1635,7 @@ public class PdfPKCS7 {
 
   /**
    * Setter for property signDate.
-   * 
+   *
    * @param signDate
    *          New value of property signDate.
    */
@@ -1609,7 +1645,7 @@ public class PdfPKCS7 {
 
   /**
    * Getter for property sigName.
-   * 
+   *
    * @return Value of property sigName.
    */
   public String getSignName() {
@@ -1618,7 +1654,7 @@ public class PdfPKCS7 {
 
   /**
    * Setter for property sigName.
-   * 
+   *
    * @param signName
    *          New value of property sigName.
    */
@@ -1741,7 +1777,7 @@ public class PdfPKCS7 {
 
     /**
      * Constructs an X509 name
-     * 
+     *
      * @param seq
      *          an ASN1 Sequence
      */
@@ -1768,7 +1804,7 @@ public class PdfPKCS7 {
 
     /**
      * Constructs an X509 name
-     * 
+     *
      * @param dirName
      *          a directory name
      */
@@ -1804,7 +1840,7 @@ public class PdfPKCS7 {
 
     /**
      * gets a field array from the values Hashmap
-     * 
+     *
      * @param name
      * @return an ArrayList
      */
@@ -1815,7 +1851,7 @@ public class PdfPKCS7 {
 
     /**
      * getter for values
-     * 
+     *
      * @return a HashMap with the fields of the X509 name
      */
     public HashMap getFields() {
