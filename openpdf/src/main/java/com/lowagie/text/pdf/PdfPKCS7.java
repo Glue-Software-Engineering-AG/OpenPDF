@@ -259,7 +259,7 @@ public class PdfPKCS7 {
       return oid;
     else
       return ret;
-  }
+    }
 
   /**
    * Gets the algorithm name for a certain id.
@@ -275,7 +275,7 @@ public class PdfPKCS7 {
       return oid;
     else
       return ret;
-  }
+    }
 
   /**
    * Gets the timestamp token if there is one.
@@ -370,11 +370,11 @@ public class PdfPKCS7 {
             break;
           } else
             return;
+          }
         }
-      }
       if (ret)
         return;
-    }
+      }
     DEROctetString os = (DEROctetString) seq.getObjectAt(1);
     ASN1InputStream inp = new ASN1InputStream(os.getOctets());
     BasicOCSPResponse resp = BasicOCSPResponse.getInstance(inp.readObject());
@@ -557,7 +557,7 @@ public class PdfPKCS7 {
         else
           messageDigest = MessageDigest.getInstance(getHashAlgorithm(),
               provider);
-      }
+        }
       if (provider == null)
         sig = Signature.getInstance(getDigestAlgorithm());
       else
@@ -645,7 +645,7 @@ public class PdfPKCS7 {
         messageDigest = MessageDigest.getInstance(getHashAlgorithm());
       else
         messageDigest = MessageDigest.getInstance(getHashAlgorithm(), provider);
-    }
+      }
 
     if (privKey != null) {
       if (provider == null)
@@ -675,7 +675,7 @@ public class PdfPKCS7 {
       messageDigest.update(buf, off, len);
     else
       sig.update(buf, off, len);
-  }
+    }
 
   /**
    * Verify the digest.
@@ -912,8 +912,8 @@ public class PdfPKCS7 {
       for (Iterator it = crls.iterator(); it.hasNext();) {
         if (((CRL) it.next()).isRevoked(cert))
           return "Certificate revoked";
+        }
       }
-    }
     return null;
   }
 
@@ -977,10 +977,10 @@ public class PdfPKCS7 {
       if (j == certs.length)
         return new Object[] { cert,
             "Cannot be verified against the KeyStore or the certificate chain" };
-    }
+      }
     return new Object[] { null,
         "Invalid state. Possible circular certificate chain" };
-  }
+    }
 
   // OJO... Modificacion de
   // Felix--------------------------------------------------
@@ -1264,8 +1264,8 @@ public class PdfPKCS7 {
         throw new ExceptionConverter(new NoSuchAlgorithmException(
             MessageLocalization.getComposedMessage("unknown.key.algorithm.1",
                 digestEncryptionAlgorithm)));
+      }
     }
-  }
 
   /**
    * Gets the bytes for the PKCS7SignedData object.
@@ -1458,7 +1458,7 @@ public class PdfPKCS7 {
 
     // @todo: move this together with the rest of the defintions
     String ID_TIME_STAMP_TOKEN = "1.2.840.113549.1.9.16.2.14"; // RFC 3161
-                                                               // id-aa-timeStampToken
+    // id-aa-timeStampToken
 
     ASN1InputStream tempstream = new ASN1InputStream(new ByteArrayInputStream(
         timeStampToken));
@@ -1507,18 +1507,23 @@ public class PdfPKCS7 {
    *         to be signed
    */
   public byte[] getAuthenticatedAttributeBytes(byte secondDigest[],
-      Calendar signingTime, byte[] ocsp) {
-    try {
+      Calendar signingTime, byte[] ocsp)
+  {
+    try
+    {
       return getAuthenticatedAttributeSet(secondDigest, signingTime, ocsp)
           .getEncoded(ASN1Encoding.DER);
-    } catch (Exception e) {
+    } catch (Exception e)
+    {
       throw new ExceptionConverter(e);
     }
   }
 
   private DERSet getAuthenticatedAttributeSet(byte secondDigest[],
-      Calendar signingTime, byte[] ocsp) {
-    try {
+      Calendar signingTime, byte[] ocsp)
+  {
+    try
+    {
       ASN1EncodableVector attribute = new ASN1EncodableVector();
       ASN1EncodableVector v = new ASN1EncodableVector();
       v.add(new ASN1ObjectIdentifier(ID_CONTENT_TYPE));
@@ -1535,11 +1540,10 @@ public class PdfPKCS7 {
       v.add(new DERSet(new DEROctetString(secondDigest)));
       attribute.add(new DERSequence(v));
 
-
-      List<DERTaggedObject> revocObjects = new ArrayList<>();
-
-       if (ocsp != null && !crls.isEmpty())
+      if (!crls.isEmpty())
       {
+        DERTaggedObject[] revocObjs;
+
         v = new ASN1EncodableVector();
         v.add(new ASN1ObjectIdentifier(ID_ADBE_REVOCATION));
 
@@ -1552,36 +1556,43 @@ public class PdfPKCS7 {
 
         DERTaggedObject crlObj = new DERTaggedObject(true, 0, new DERSequence(v2));
 
-
-        DEROctetString doctet = new DEROctetString(ocsp);
-        ASN1EncodableVector vo1 = new ASN1EncodableVector();
-
-        ASN1EncodableVector v4 = new ASN1EncodableVector();
-        v4.add(OCSPObjectIdentifiers.id_pkix_ocsp_basic);
-        v4.add(doctet);
-        ASN1Enumerated den = new ASN1Enumerated(0);
-        ASN1EncodableVector v3 = new ASN1EncodableVector();
-        v3.add(den);
-        v3.add(new DERTaggedObject(true, 0, new DERSequence(v4)));
-        vo1.add(new DERSequence(v3));
-
-        DERTaggedObject ocspObj = new DERTaggedObject(true, 1, new DERSequence(vo1));
-
-        DERTaggedObject[] revocObjs = new DERTaggedObject[]
+        if (ocsp != null && ocsp.length > 0)
         {
-          crlObj, ocspObj
-        };
+          DEROctetString doctet = new DEROctetString(ocsp);
+          ASN1EncodableVector vo1 = new ASN1EncodableVector();
+
+          ASN1EncodableVector v4 = new ASN1EncodableVector();
+          v4.add(OCSPObjectIdentifiers.id_pkix_ocsp_basic);
+          v4.add(doctet);
+          ASN1Enumerated den = new ASN1Enumerated(0);
+          ASN1EncodableVector v3 = new ASN1EncodableVector();
+          v3.add(den);
+          v3.add(new DERTaggedObject(true, 0, new DERSequence(v4)));
+          vo1.add(new DERSequence(v3));
+
+          DERTaggedObject ocspObj = new DERTaggedObject(true, 1, new DERSequence(vo1));
+          revocObjs = new DERTaggedObject[]
+          {
+            crlObj, ocspObj
+          };
+
+        } else
+        {
+          revocObjs = new DERTaggedObject[]
+          {
+            crlObj
+          };
+        }
 
         DERSequence revocInfoSeq = new DERSequence(revocObjs);
-
         v.add(new DERSet(revocInfoSeq));
-
         attribute.add(new DERSequence(v));
       }
 
       return new DERSet(attribute);
 
-    } catch (Exception e) {
+    } catch (Exception e)
+    {
       throw new ExceptionConverter(e);
     }
   }
