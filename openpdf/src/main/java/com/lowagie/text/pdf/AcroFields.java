@@ -56,15 +56,13 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import com.lowagie.text.error_messages.MessageLocalization;
-
 import org.w3c.dom.Node;
-
 import com.lowagie.text.DocumentException;
 import com.lowagie.text.Element;
 import com.lowagie.text.ExceptionConverter;
 import com.lowagie.text.Image;
 import com.lowagie.text.Rectangle;
+import com.lowagie.text.error_messages.MessageLocalization;
 import com.lowagie.text.pdf.codec.Base64;
 
 /**
@@ -2057,7 +2055,10 @@ public class AcroFields {
             int rangeSize = ro.size();
             if (rangeSize < 2)
                 continue;
-            int length = ro.getAsNumber(rangeSize - 1).intValue() + ro.getAsNumber(rangeSize - 2).intValue();
+            int blockOne = ro.getAsNumber(1).intValue();
+            int blockTwo = ro.getAsNumber(3).intValue();
+            int sigBlock = contents.getOriginalBytes().length * 2 + 2;
+            int length = blockOne + sigBlock + blockTwo;
             sorter.add(new Object[]{entry.getKey(), new int[]{length, 0}});
         }
         Collections.sort(sorter, new AcroFields.SorterComparator());
