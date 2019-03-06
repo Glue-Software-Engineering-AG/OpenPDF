@@ -2057,8 +2057,11 @@ public class AcroFields {
             int rangeSize = ro.size();
             if (rangeSize < 2)
                 continue;
-            // Byterange: An array of pairs of integers (starting byte offset, length in
-            // bytes)
+            /*
+             * From the PDF32000_2008 spec: Byterange: An array of pairs of integers
+             * (starting byte offset, length in bytes) Also see:
+             * https://pdf-insecurity.org/download/paper.pdf
+             */
             int lengthOfSignedBlocks = 0;
             for (int i = rangeSize - 1; i > 0; i = i - 2) {
                 lengthOfSignedBlocks += ro.getAsNumber(i).intValue();
