@@ -56,7 +56,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
 import org.w3c.dom.Node;
+
 import com.lowagie.text.DocumentException;
 import com.lowagie.text.Element;
 import com.lowagie.text.ExceptionConverter;
@@ -2055,11 +2057,16 @@ public class AcroFields {
             int rangeSize = ro.size();
             if (rangeSize < 2)
                 continue;
-            int blockOne = ro.getAsNumber(1).intValue();
-            int blockTwo = ro.getAsNumber(3).intValue();
-            int sigBlock = contents.getOriginalBytes().length * 2 + 2;
-            int length = blockOne + sigBlock + blockTwo;
-            sorter.add(new Object[]{entry.getKey(), new int[]{length, 0}});
+
+            int lengthOfSignedBlocks = 0;
+            for (int i = rangeSize - 1; i > 0; i = i - 2) {
+                lengthOfSignedBlocks += ro.getAsNumber(i).intValue();
+            }
+            // TODO prüfen ob contents ein gültiges PKCS7 ist?
+            int unsignedBlock = contents.getOriginalBytes().length * 2 + 2;
+            int length = lengthOfSignedBlocks + unsignedBlock;
+
+            sorter.add(new Object[] { entry.getKey(), new int[] { length, 0 } });
         }
         Collections.sort(sorter, new AcroFields.SorterComparator());
         if (!sorter.isEmpty()) {
