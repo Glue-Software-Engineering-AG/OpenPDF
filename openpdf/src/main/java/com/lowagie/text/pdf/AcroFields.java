@@ -2057,12 +2057,12 @@ public class AcroFields {
             int rangeSize = ro.size();
             if (rangeSize < 2)
                 continue;
-
+            // Byterange: An array of pairs of integers (starting byte offset, length in
+            // bytes)
             int lengthOfSignedBlocks = 0;
             for (int i = rangeSize - 1; i > 0; i = i - 2) {
                 lengthOfSignedBlocks += ro.getAsNumber(i).intValue();
             }
-            // TODO prüfen ob contents ein gültiges PKCS7 ist?
             int unsignedBlock = contents.getOriginalBytes().length * 2 + 2;
             int length = lengthOfSignedBlocks + unsignedBlock;
 
