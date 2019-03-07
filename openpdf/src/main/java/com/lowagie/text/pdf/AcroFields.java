@@ -56,7 +56,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import com.lowagie.text.error_messages.MessageLocalization;
 
 import org.w3c.dom.Node;
 
@@ -65,6 +64,7 @@ import com.lowagie.text.Element;
 import com.lowagie.text.ExceptionConverter;
 import com.lowagie.text.Image;
 import com.lowagie.text.Rectangle;
+import com.lowagie.text.error_messages.MessageLocalization;
 import com.lowagie.text.pdf.codec.Base64;
 
 /**
@@ -2057,8 +2057,19 @@ public class AcroFields {
             int rangeSize = ro.size();
             if (rangeSize < 2)
                 continue;
-            int length = ro.getAsNumber(rangeSize - 1).intValue() + ro.getAsNumber(rangeSize - 2).intValue();
-            sorter.add(new Object[]{entry.getKey(), new int[]{length, 0}});
+            /*
+             * From the PDF32000_2008 spec: Byterange: An array of pairs of integers
+             * (starting byte offset, length in bytes) Also see:
+             * https://pdf-insecurity.org/download/paper.pdf
+             */
+            int lengthOfSignedBlocks = 0;
+            for (int i = rangeSize - 1; i > 0; i = i - 2) {
+                lengthOfSignedBlocks += ro.getAsNumber(i).intValue();
+            }
+            int unsignedBlock = contents.getOriginalBytes().length * 2 + 2;
+            int length = lengthOfSignedBlocks + unsignedBlock;
+
+            sorter.add(new Object[] { entry.getKey(), new int[] { length, 0 } });
         }
         Collections.sort(sorter, new AcroFields.SorterComparator());
         if (!sorter.isEmpty()) {
