@@ -63,7 +63,6 @@ import java.security.Signature;
 import java.security.SignatureException;
 import java.security.cert.CRL;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateParsingException;
 import java.security.cert.X509CRL;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -76,9 +75,9 @@ import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
-import com.lowagie.text.ExceptionConverter;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1Enumerated;
@@ -116,7 +115,7 @@ import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.tsp.TimeStampToken;
 
-
+import com.lowagie.text.ExceptionConverter;
 import com.lowagie.text.error_messages.MessageLocalization;
 
 /**
@@ -1399,6 +1398,18 @@ public class PdfPKCS7 {
       body.add(new DERSet(digestAlgorithms));
       body.add(contentinfo);
       body.add(new DERTaggedObject(false, 0, dercertificates));
+// TODO prüfen
+//      if (!crls.isEmpty())
+//      {
+//        v = new ASN1EncodableVector();
+//        for (Iterator i = crls.iterator(); i.hasNext();)
+//        {
+//          ASN1InputStream t = new ASN1InputStream(new ByteArrayInputStream(((X509CRL) i.next()).getEncoded()));
+//          v.add(t.readObject());
+//        }
+//        DERSet dercrls = new DERSet(v);
+//        body.add(new DERTaggedObject(false, 1, dercrls));
+//      }
 
       // Only allow one signerInfo
       body.add(new DERSet(new DERSequence(signerinfo)));
@@ -1498,8 +1509,7 @@ public class PdfPKCS7 {
     }
   }
 
-  private DERSet getAuthenticatedAttributeSet(byte[] secondDigest,
-                                              Calendar signingTime, byte[] ocsp) {
+  private DERSet getAuthenticatedAttributeSet(byte[] secondDigest, Calendar signingTime, byte[] ocsp) {
     try {
       ASN1EncodableVector attribute = new ASN1EncodableVector();
       ASN1EncodableVector v = new ASN1EncodableVector();
@@ -1514,36 +1524,54 @@ public class PdfPKCS7 {
       v.add(new ASN1ObjectIdentifier(ID_MESSAGE_DIGEST));
       v.add(new DERSet(new DEROctetString(secondDigest)));
       attribute.add(new DERSequence(v));
-      if (ocsp != null) {
+
+      // add revocation info if either crls or ocsp (or both)
+      // see chapter 12.8.3.3.2 Revocation Information
+      if (!crls.isEmpty() || (ocsp != null && ocsp.length > 0)) {
+
         v = new ASN1EncodableVector();
         v.add(new ASN1ObjectIdentifier(ID_ADBE_REVOCATION));
-        DEROctetString doctet = new DEROctetString(ocsp);
-        ASN1EncodableVector vo1 = new ASN1EncodableVector();
-        ASN1EncodableVector v2 = new ASN1EncodableVector();
-        v2.add(OCSPObjectIdentifiers.id_pkix_ocsp_basic);
-        v2.add(doctet);
-        ASN1Enumerated den = new ASN1Enumerated(0);
-        ASN1EncodableVector v3 = new ASN1EncodableVector();
-        v3.add(den);
-        v3.add(new DERTaggedObject(true, 0, new DERSequence(v2)));
-        vo1.add(new DERSequence(v3));
-        v.add(new DERSet(new DERSequence(new DERTaggedObject(true, 1,
-            new DERSequence(vo1)))));
-        attribute.add(new DERSequence(v));
-      } else if (!crls.isEmpty()) {
-        v = new ASN1EncodableVector();
-        v.add(new ASN1ObjectIdentifier(ID_ADBE_REVOCATION));
-        ASN1EncodableVector v2 = new ASN1EncodableVector();
-        for (Iterator i = crls.iterator(); i.hasNext();) {
-          ASN1InputStream t = new ASN1InputStream(new ByteArrayInputStream(
-              ((X509CRL) i.next()).getEncoded()));
-          v2.add(t.readObject());
+
+        List<DERTaggedObject> revocObjects = new ArrayList<>();
+
+        // the crl part
+        if (!crls.isEmpty()) {
+          ASN1EncodableVector v2 = new ASN1EncodableVector();
+          for (Iterator i = crls.iterator(); i.hasNext();) {
+            ASN1InputStream t = new ASN1InputStream(new ByteArrayInputStream(((X509CRL) i.next()).getEncoded()));
+            v2.add(t.readObject());
+          }
+
+          // CRL is tag zero in RevocationInfoArchival
+          revocObjects.add(new DERTaggedObject(true, 0, new DERSequence(v2)));
         }
-        v.add(new DERSet(new DERSequence(new DERTaggedObject(true, 0,
-            new DERSequence(v2)))));
+
+        // the ocsp part
+        if (ocsp != null && ocsp.length > 0) {
+          DEROctetString doctet = new DEROctetString(ocsp);
+          ASN1EncodableVector vo1 = new ASN1EncodableVector();
+
+          ASN1EncodableVector v4 = new ASN1EncodableVector();
+          v4.add(OCSPObjectIdentifiers.id_pkix_ocsp_basic);
+          v4.add(doctet);
+          ASN1Enumerated den = new ASN1Enumerated(0);
+          ASN1EncodableVector v3 = new ASN1EncodableVector();
+          v3.add(den);
+          v3.add(new DERTaggedObject(true, 0, new DERSequence(v4)));
+          vo1.add(new DERSequence(v3));
+
+          // OCSP is tag one in RevocationInfoArchival
+          revocObjects.add(new DERTaggedObject(true, 1, new DERSequence(vo1)));
+        }
+
+        DERTaggedObject[] revocObjs = revocObjects.toArray(new DERTaggedObject[0]);
+        DERSequence revocInfoSeq = new DERSequence(revocObjs);
+        v.add(new DERSet(revocInfoSeq));
         attribute.add(new DERSequence(v));
       }
+
       return new DERSet(attribute);
+
     } catch (Exception e) {
       throw new ExceptionConverter(e);
     }
