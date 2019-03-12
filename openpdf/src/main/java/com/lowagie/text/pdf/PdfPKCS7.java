@@ -1399,6 +1399,8 @@ public class PdfPKCS7 {
       body.add(contentinfo);
       body.add(new DERTaggedObject(false, 0, dercertificates));
 // TODO prüfen
+      // rfc2315#section-9.1, CertificateRevocationLists
+      // TODO 12.8.3.3.1 besagt aber es soll als signed-attribute eingebettet werden!
 //      if (!crls.isEmpty())
 //      {
 //        v = new ASN1EncodableVector();
