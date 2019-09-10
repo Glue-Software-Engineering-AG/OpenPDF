@@ -57,7 +57,6 @@ import java.net.URL;
 import java.net.URLConnection;
 
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
-import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
 import org.bouncycastle.tsp.TimeStampRequest;
 import org.bouncycastle.tsp.TimeStampRequestGenerator;
 import org.bouncycastle.tsp.TimeStampResponse;
@@ -176,10 +175,8 @@ public class TSAClientBouncyCastle implements TSAClient {
       // Setup the time stamp request
       TimeStampRequestGenerator tsqGenerator = new TimeStampRequestGenerator();
       tsqGenerator.setCertReq(true);
-      // tsqGenerator.setReqPolicy("1.3.6.1.4.1.601.10.3.1");
       BigInteger nonce = BigInteger.valueOf(System.currentTimeMillis());
-      TimeStampRequest request = tsqGenerator.generate(
-          X509ObjectIdentifiers.id_SHA1.getId(), imprint, nonce);
+      TimeStampRequest request = tsqGenerator.generate(getHashingAlgorithm().getASN1ObjectIdentifier(), imprint, nonce);
       byte[] requestBytes = request.getEncoded();
 
       // Call the communications layer
@@ -270,5 +267,11 @@ public class TSAClientBouncyCastle implements TSAClient {
       respBytes = Base64.decode(new String(respBytes));
     }
     return respBytes;
+  }
+
+  @Override
+  public HashAlg getHashingAlgorithm()
+  {
+      return HashAlg.buildSHA1HashAlg();
   }
 }

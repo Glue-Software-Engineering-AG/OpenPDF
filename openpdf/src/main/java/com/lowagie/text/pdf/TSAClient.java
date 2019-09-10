@@ -49,6 +49,9 @@
 
 package com.lowagie.text.pdf;
 
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.tsp.TSPAlgorithms;
+
 /**
  * Time Stamp Authority client (caller) interface.
  * <p>
@@ -76,4 +79,54 @@ public interface TSAClient {
      */
     byte[] getTimeStampToken(PdfPKCS7 caller, byte[] imprint) throws Exception;
     
+    /**
+     * Returns the hashing algorithm to be used to calculate the imprint as a Text.
+     * @see #getTimeStampToken(PdfPKCS7, byte[])
+     * @return The hashing algorithm to be used to calculcate the imprint.
+     */
+    HashAlg getHashingAlgorithm();
+
+    /**
+     * Container for informations about the hashing algorithm used to create the imprint.
+     */
+    class HashAlg
+    {
+        String stringRepresentation;
+        ASN1ObjectIdentifier asn1ObjectIdentifier;
+
+        /**
+         * @param stringRepresentation Name of the algorithm.
+         *    The names of the hashing algorithms may be found at
+         *    <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/security/StandardNames.html#algspec">
+         *    Standard Algorithm Name Documentation for JDK 8</a>
+         * @param asn1ObjectIdentifier The ASN1ObjectIdentifier representing the algorithm.
+         *    @see org.bouncycastle.asn1.x509.X509ObjectIdentifiers
+         */
+        public HashAlg(String stringRepresentation, ASN1ObjectIdentifier asn1ObjectIdentifier)
+        {
+            this.stringRepresentation = stringRepresentation;
+            this.asn1ObjectIdentifier = asn1ObjectIdentifier;
+        }
+        
+        public String getStringRepresentation()
+        {
+            return stringRepresentation;
+        }
+        
+        public ASN1ObjectIdentifier getASN1ObjectIdentifier()
+        {
+            return asn1ObjectIdentifier;
+        }
+
+        public static HashAlg buildSHA256HashAlg()
+        {
+            return new HashAlg("SHA-256", TSPAlgorithms.SHA256);
+        }
+
+        public static HashAlg buildSHA1HashAlg()
+        {
+            return new HashAlg("SHA-1", TSPAlgorithms.SHA1);
+        }
+            
+    }
 }

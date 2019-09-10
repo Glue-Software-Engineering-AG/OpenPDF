@@ -113,7 +113,6 @@ import org.bouncycastle.jce.provider.X509CertParser;
 import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.tsp.TimeStampToken;
-import java.util.List;
 import com.lowagie.text.ExceptionConverter;
 import com.lowagie.text.error_messages.MessageLocalization;
 import org.bouncycastle.asn1.BERTaggedObject;
@@ -716,9 +715,9 @@ public class PdfPKCS7 {
   public boolean verifyTimestampImprint() throws NoSuchAlgorithmException {
     if (timeStampToken == null)
       return false;
-    MessageImprint imprint = timeStampToken.getTimeStampInfo().toTSTInfo()
-        .getMessageImprint();
-    byte[] md = MessageDigest.getInstance("SHA-1").digest(digest);
+    MessageImprint imprint = timeStampToken.getTimeStampInfo().toASN1Structure().getMessageImprint();
+    String algOid = timeStampToken.getTimeStampInfo().getMessageImprintAlgOID().getId();
+    byte[] md = MessageDigest.getInstance(algOid).digest(digest);
     byte[] imphashed = imprint.getHashedMessage();
     boolean res = Arrays.equals(md, imphashed);
     return res;
@@ -1385,10 +1384,9 @@ public class PdfPKCS7 {
       signerinfo.add(new DEROctetString(digest));
 
       // When requested, go get and add the timestamp. May throw an exception.
-      // Added by Martin Brunecky, 07/12/2007 folowing Aiken Sam, 2006-11-15
-      // Sam found Adobe expects time-stamped SHA1-1 of the encrypted digest
       if (tsaClient != null) {
-        byte[] tsImprint = MessageDigest.getInstance("SHA-1").digest(digest);
+        byte[] tsImprint
+            = MessageDigest.getInstance(tsaClient.getHashingAlgorithm().stringRepresentation).digest(digest);
         byte[] tsToken = tsaClient.getTimeStampToken(this, tsImprint);
         if (tsToken != null) {
           ASN1EncodableVector unauthAttributes = buildUnauthenticatedAttributes(tsToken);
