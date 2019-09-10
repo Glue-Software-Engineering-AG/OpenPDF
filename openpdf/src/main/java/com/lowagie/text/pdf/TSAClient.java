@@ -79,8 +79,6 @@ public interface TSAClient {
      */
     byte[] getTimeStampToken(PdfPKCS7 caller, byte[] imprint) throws Exception;
     
-    //TODO: TSAClient sollte einen Getter bekommen um den hash-alg angeben zu können
-
     /**
      * Returns the hashing algorithm to be used to calculate the imprint as a Text.
      * @see #getTimeStampToken(PdfPKCS7, byte[])

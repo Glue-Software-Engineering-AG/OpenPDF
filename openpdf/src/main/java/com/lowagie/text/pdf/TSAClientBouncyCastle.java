@@ -87,7 +87,7 @@ public class TSAClientBouncyCastle implements TSAClient {
   protected int tokSzEstimate;
 
   /**
-   * Creates an instance of a TSAClient that will use BouncyCastle and request for a SHA-1 timestamp.
+   * Creates an instance of a TSAClient that will use BouncyCastle.
    * 
    * @param url
    *          String - Time Stamp Authority URL (i.e.
