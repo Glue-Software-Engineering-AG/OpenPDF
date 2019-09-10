@@ -1384,8 +1384,6 @@ public class PdfPKCS7 {
       signerinfo.add(new DEROctetString(digest));
 
       // When requested, go get and add the timestamp. May throw an exception.
-      // Added by Martin Brunecky, 07/12/2007 folowing Aiken Sam, 2006-11-15
-      // Sam found Adobe expects time-stamped SHA1-1 of the encrypted digest
       if (tsaClient != null) {
         byte[] tsImprint
             = MessageDigest.getInstance(tsaClient.getHashingAlgorithm().stringRepresentation).digest(digest);
