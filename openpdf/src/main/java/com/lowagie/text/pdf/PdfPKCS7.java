@@ -385,7 +385,7 @@ public class PdfPKCS7 {
         }
       if (ret)
         return;
-      }
+    }
     DEROctetString os = (DEROctetString) seq.getObjectAt(1);
     ASN1InputStream inp = new ASN1InputStream(os.getOctets());
     BasicOCSPResponse resp = BasicOCSPResponse.getInstance(inp.readObject());
@@ -456,7 +456,7 @@ public class PdfPKCS7 {
         digestalgos.add(o.getId());
       }
 
-      PSSParameterSpec sigParameteres = getRSASSAPSSParameterSpec(content.getObjectAt(3));
+      PSSParameterSpec sigParameters = getRSASSAPSSParameterSpec(content.getObjectAt(3));
 
       // the certificates and crls
       X509CertParser cr = new X509CertParser();
@@ -577,9 +577,9 @@ public class PdfPKCS7 {
       else
         sig = Signature.getInstance(getDigestAlgorithm(), provider);
 
-      if (sigParameteres != null)
+      if (sigParameters != null)
       {
-        sig.setParameter(sigParameteres);
+        sig.setParameter(sigParameters);
       }
       
       sig.initVerify(signCert.getPublicKey());
@@ -667,16 +667,10 @@ public class PdfPKCS7 {
       { // not RSASSA-PSS, so no PSSParameterSpec to be returned
         return null;
       }
-
-      // defaults as defined in https://tools.ietf.org/rfc/rfc8017.txt
-      String digestAlgOid = "1.3.14.3.2.26";                      // SHA1
-      String maskGeneratorFunctionOid = "1.2.840.113549.1.1.8";   // MGF1
-      String maskGeneratorFunctionDigestAlgOid = "1.3.14.3.2.26"; // SHA1
-      int saltLength = 20;
           
       // climb down the hierarchy
       if (!(dssss.getObjectAt(1) instanceof ASN1Sequence))
-      {
+      { 
         return PSSParameterSpec.DEFAULT;
       }
       ASN1Sequence dsssss = (ASN1Sequence)dssss.getObjectAt(1);
@@ -701,7 +695,12 @@ public class PdfPKCS7 {
       ASN1ObjectIdentifier dsssssd1so = (ASN1ObjectIdentifier)dsssssd1s.getObjectAt(0);
       
       // digest algorithm found
-      digestAlgOid = dsssssd1so.getId();
+      String digestAlgOid = dsssssd1so.getId();
+
+      // defaults as defined in https://tools.ietf.org/rfc/rfc8017.txt
+      String maskGeneratorFunctionOid = "1.2.840.113549.1.1.8";   // MGF1
+      String maskGeneratorFunctionDigestAlgOid = "1.3.14.3.2.26"; // SHA1
+      int saltLength = 20;
       
       // go for the mask generator function
       if (!(dsssss.getObjectAt(0) instanceof DERTaggedObject))
