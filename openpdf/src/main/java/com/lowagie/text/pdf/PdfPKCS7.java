@@ -350,6 +350,12 @@ public class PdfPKCS7 {
   private void findOcsp(ASN1Sequence seq) throws IOException {
     basicResp = null;
     boolean ret = false;
+
+    if (seq.size() == 0)
+    {
+      return;
+    }
+
     while (true) {
       if ((seq.getObjectAt(0) instanceof ASN1ObjectIdentifier)
           && ((ASN1ObjectIdentifier) seq.getObjectAt(0)).getId().equals(
@@ -463,7 +469,7 @@ public class PdfPKCS7 {
 
       // the signerInfos
       int next = 3;
-     while (content.getObjectAt(next) instanceof DERTaggedObject ||
+      while (content.getObjectAt(next) instanceof DERTaggedObject ||
              content.getObjectAt(next) instanceof BERTaggedObject)
         ++next;
       ASN1Set signerInfos = (ASN1Set) content.getObjectAt(next);
