@@ -115,6 +115,8 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.tsp.TimeStampToken;
 import com.lowagie.text.ExceptionConverter;
 import com.lowagie.text.error_messages.MessageLocalization;
+import java.security.spec.MGF1ParameterSpec;
+import java.security.spec.PSSParameterSpec;
 import org.bouncycastle.asn1.BERTaggedObject;
 
 /**
@@ -135,7 +137,6 @@ public class PdfPKCS7 {
   private MessageDigest messageDigest;
   private String digestAlgorithm, digestEncryptionAlgorithm;
   private Signature sig;
-  private transient PrivateKey privKey;
   private byte RSAdata[];
   private boolean verified;
   private boolean verifyResult;
@@ -176,6 +177,7 @@ public class PdfPKCS7 {
   private static final HashMap digestNames = new HashMap();
   private static final HashMap algorithmNames = new HashMap();
   private static final HashMap allowedDigests = new HashMap();
+  private static final HashMap maskGeneratorFunctions = new HashMap();
 
   static {
     digestNames.put("1.2.840.113549.2.5", "MD5");
@@ -206,12 +208,15 @@ public class PdfPKCS7 {
     digestNames.put("1.3.36.3.3.1.2", "RIPEMD160");
     digestNames.put("1.3.36.3.3.1.4", "RIPEMD256");
 
+    maskGeneratorFunctions.put("1.2.840.113549.1.1.8", "MGF1");
+
     algorithmNames.put("1.2.840.113549.1.1.1", "RSA");
     algorithmNames.put("1.2.840.10040.4.1", "DSA");
     algorithmNames.put("1.2.840.113549.1.1.2", "RSA");
     algorithmNames.put("1.2.840.113549.1.1.4", "RSA");
     algorithmNames.put("1.2.840.113549.1.1.5", "RSA");
     algorithmNames.put("1.2.840.113549.1.1.14", "RSA");
+    algorithmNames.put("1.2.840.113549.1.1.10", "RSA/PSS");
     algorithmNames.put("1.2.840.113549.1.1.11", "RSA");
     algorithmNames.put("1.2.840.113549.1.1.12", "RSA");
     algorithmNames.put("1.2.840.113549.1.1.13", "RSA");
@@ -258,7 +263,14 @@ public class PdfPKCS7 {
       return oid;
     else
       return ret;
-    }
+  }
+
+  public static String getMaskGeneratorFunction(String oid) {
+    String ret = (String) maskGeneratorFunctions.get(oid);
+    if (ret == null)
+      return oid;
+    return ret;
+  }
 
   /**
    * Gets the algorithm name for a certain id.
@@ -373,7 +385,7 @@ public class PdfPKCS7 {
         }
       if (ret)
         return;
-      }
+    }
     DEROctetString os = (DEROctetString) seq.getObjectAt(1);
     ASN1InputStream inp = new ASN1InputStream(os.getOctets());
     BasicOCSPResponse resp = BasicOCSPResponse.getInstance(inp.readObject());
@@ -428,6 +440,7 @@ public class PdfPKCS7 {
       // 0 - version
       // 1 - digestAlgorithms
       // 2 - possible ID_PKCS7_DATA
+      // 3 - encryption algorithm specification
       // (the certificates and crls are taken out by other means)
       // last - signerInfos
 
@@ -442,6 +455,8 @@ public class PdfPKCS7 {
         ASN1ObjectIdentifier o = (ASN1ObjectIdentifier) s.getObjectAt(0);
         digestalgos.add(o.getId());
       }
+
+      PSSParameterSpec sigParameters = getRSASSAPSSParameterSpec(content.getObjectAt(3));
 
       // the certificates and crls
       X509CertParser cr = new X509CertParser();
@@ -556,16 +571,210 @@ public class PdfPKCS7 {
         else
           messageDigest = MessageDigest.getInstance(getHashAlgorithm(),
               provider);
-        }
+      }
       if (provider == null)
         sig = Signature.getInstance(getDigestAlgorithm());
       else
         sig = Signature.getInstance(getDigestAlgorithm(), provider);
+
+      if (sigParameters != null)
+      {
+        sig.setParameter(sigParameters);
+      }
+      
       sig.initVerify(signCert.getPublicKey());
     } catch (Exception e) {
       throw new ExceptionConverter(e);
     }
   }
+
+  /**
+   * To validate a signature created with RSASSA/PSS the Signature object must be equiped with an
+   * AlgorithmParameterSpec. This method is able to read the ASN1 structure and pull these values. Default values are
+   * applied where no explicit ones are given.
+   * 
+   * https://tools.ietf.org/rfc/rfc8017.txt ->  A.2.3.  RSASSA-PSS Page 60
+   * 
+   * Example of a structure with all values explicitly defined:
+   * DER Tagged Object  : | D
+   * Sequence           : | | +
+   * Sequence           : | | | +
+   * Sequence           : | | | | +
+   * DER Tagged Object  : | | | | | D
+   * integer            : | | | | | | 2
+   * integer            : | | | | | 123456789
+   * Sequence           : | | | | | +
+   * ObjectIdentifier   : | | | | | | 1.2.840.113549.1.1.10  -- RSASSA-PSS
+   * Sequence           : | | | | | | +
+   * DER Tagged Object  : | | | | | | | D
+   * Sequence           : | | | | | | | | +
+   * ObjectIdentifier   : | | | | | | | | | 2.16.840.1.101.3.4.2.1  -- SHA256
+   * null               : | | | | | | | | | N
+   * DER Tagged Object  : | | | | | | | D
+   * Sequence           : | | | | | | | | +
+   * ObjectIdentifier   : | | | | | | | | | 1.2.840.113549.1.1.8  -- MGF1
+   * Sequence           : | | | | | | | | | +
+   * ObjectIdentifier   : | | | | | | | | | | 2.16.840.1.101.3.4.2.1  -- SHA256
+   * null               : | | | | | | | | | | N
+   * DER Tagged Object  : | | | | | | | D
+   * integer            : | | | | | | | | 32  -- Salt length 32
+   *
+   * @param possibleSignatureInformation probably the signerinformation object.
+   * @return the PSSParameterSpec if this is a signature using RSAASS/PSS, null if not. If not all values are
+   * specifically defined, the default values are used as described in RFC8017
+   */
+    private PSSParameterSpec getRSASSAPSSParameterSpec(Object possibleSignatureInformation)
+    {
+      if (!(possibleSignatureInformation instanceof DERTaggedObject))
+      {
+        return null;
+      }
+      DERTaggedObject d = (DERTaggedObject)possibleSignatureInformation;
+
+      if (!(d.getObject() instanceof ASN1Sequence))
+      {
+        return null;
+      }
+      ASN1Sequence ds = (ASN1Sequence)d.getObject();
+
+      if (!(ds.getObjectAt(0) instanceof ASN1Sequence))
+      {
+        return null;
+      }
+      ASN1Sequence dss = (ASN1Sequence)ds.getObjectAt(0);
+
+      if (!(dss.getObjectAt(0) instanceof ASN1Sequence))
+      {
+        return null;
+      }
+      ASN1Sequence dsss = (ASN1Sequence)dss.getObjectAt(0);
+
+      if (!(dsss.getObjectAt(2) instanceof ASN1Sequence))
+      {
+        return null;
+      }
+      ASN1Sequence dssss = (ASN1Sequence)dsss.getObjectAt(2);
+
+      if (!(dssss.getObjectAt(0) instanceof ASN1ObjectIdentifier))
+      {
+        return null;
+      }
+      ASN1ObjectIdentifier dsssso = (ASN1ObjectIdentifier)dssss.getObjectAt(0);
+
+      String encAlgOid = dsssso.getId();
+
+      if (!"1.2.840.113549.1.1.10".equals(encAlgOid))
+      { // not RSASSA-PSS, so no PSSParameterSpec to be returned
+        return null;
+      }
+          
+      // climb down the hierarchy
+      if (!(dssss.getObjectAt(1) instanceof ASN1Sequence))
+      { 
+        return PSSParameterSpec.DEFAULT;
+      }
+      ASN1Sequence dsssss = (ASN1Sequence)dssss.getObjectAt(1);
+      
+      // go for the digest algorithm
+      if (!(dsssss.getObjectAt(0) instanceof DERTaggedObject))
+      {
+        return PSSParameterSpec.DEFAULT;
+      }
+      DERTaggedObject dsssssd1 = (DERTaggedObject)dsssss.getObjectAt(0);
+      
+      if (!(dsssssd1.getObject() instanceof ASN1Sequence))
+      {
+        return PSSParameterSpec.DEFAULT;
+      }
+      ASN1Sequence dsssssd1s = (ASN1Sequence)dsssssd1.getObject();
+      
+      if (!(dsssssd1s.getObjectAt(0) instanceof ASN1ObjectIdentifier))
+      {
+        return PSSParameterSpec.DEFAULT;
+      }
+      ASN1ObjectIdentifier dsssssd1so = (ASN1ObjectIdentifier)dsssssd1s.getObjectAt(0);
+      
+      // digest algorithm found
+      String digestAlgOid = dsssssd1so.getId();
+
+      // defaults as defined in https://tools.ietf.org/rfc/rfc8017.txt
+      String maskGeneratorFunctionOid = "1.2.840.113549.1.1.8";   // MGF1
+      String maskGeneratorFunctionDigestAlgOid = "1.3.14.3.2.26"; // SHA1
+      int saltLength = 20;
+      
+      // go for the mask generator function
+      if (!(dsssss.getObjectAt(0) instanceof DERTaggedObject))
+      {
+        return buildPSSParameterSpec(digestAlgOid, maskGeneratorFunctionOid, maskGeneratorFunctionDigestAlgOid,
+            saltLength);
+      }
+      DERTaggedObject dsssssd2 = (DERTaggedObject)dsssss.getObjectAt(1);
+
+      if (!(dsssssd2.getObject() instanceof ASN1Sequence))
+      {
+        return buildPSSParameterSpec(digestAlgOid, maskGeneratorFunctionOid, maskGeneratorFunctionDigestAlgOid,
+            saltLength);
+      }
+      ASN1Sequence dsssssd2s = (ASN1Sequence)dsssssd2.getObject();
+
+      if (!(dsssssd2s.getObjectAt(0) instanceof ASN1ObjectIdentifier))
+      {
+        return buildPSSParameterSpec(digestAlgOid, maskGeneratorFunctionOid, maskGeneratorFunctionDigestAlgOid,
+            saltLength);
+      }
+      ASN1ObjectIdentifier dsssssd2so = (ASN1ObjectIdentifier)dsssssd2s.getObjectAt(0);
+      
+      // mask generator function found
+      maskGeneratorFunctionOid = dsssssd2so.getId();
+      
+      // go for the digest algorithm of the mask generator function
+      if (!(dsssssd2s.getObjectAt(1) instanceof ASN1Sequence))
+      {
+        return buildPSSParameterSpec(digestAlgOid, maskGeneratorFunctionOid, maskGeneratorFunctionDigestAlgOid,
+            saltLength);
+      }
+      ASN1Sequence dsssssd2ss = (ASN1Sequence)dsssssd2s.getObjectAt(1);
+
+      if (!(dsssssd2ss.getObjectAt(0) instanceof ASN1ObjectIdentifier))
+      {
+        return buildPSSParameterSpec(digestAlgOid, maskGeneratorFunctionOid, maskGeneratorFunctionDigestAlgOid,
+            saltLength);
+      }
+      ASN1ObjectIdentifier dsssssd2sso = (ASN1ObjectIdentifier)dsssssd2ss.getObjectAt(0);
+      
+      // digest algorithm of the mask generator function found
+      maskGeneratorFunctionDigestAlgOid = dsssssd2sso.getId();
+      
+      // go for the salt length
+      if (!(dsssss.getObjectAt(2) instanceof DERTaggedObject))
+      {
+        return buildPSSParameterSpec(digestAlgOid, maskGeneratorFunctionOid, maskGeneratorFunctionDigestAlgOid,
+            saltLength);
+      }
+      DERTaggedObject dsssssd3 = (DERTaggedObject)dsssss.getObjectAt(2);
+
+      if (!(dsssssd3.getObject() instanceof ASN1Integer))
+      {
+        return buildPSSParameterSpec(digestAlgOid, maskGeneratorFunctionOid, maskGeneratorFunctionDigestAlgOid,
+            saltLength);
+      }
+      ASN1Integer dsssssd3i = (ASN1Integer)dsssssd3.getObject();
+
+      // salt length found
+      saltLength = dsssssd3i.getValue().intValue();
+      
+      // all parameters explicit
+      return buildPSSParameterSpec(digestAlgOid, maskGeneratorFunctionOid, maskGeneratorFunctionDigestAlgOid,
+          saltLength);
+    }
+    
+    private PSSParameterSpec buildPSSParameterSpec(String digestAlgOID, String maskGeneratorFunctionOID, String maskGeneratorFunctionDigestAlgOID, int saltLength)
+    {
+      return new PSSParameterSpec(getDigest(digestAlgOID),
+          getMaskGeneratorFunction(maskGeneratorFunctionOID),
+          new MGF1ParameterSpec(getDigest(maskGeneratorFunctionDigestAlgOID)),
+          saltLength, 1);
+    }
 
   /**
    * Generates a signature.
@@ -593,7 +802,6 @@ public class PdfPKCS7 {
       String hashAlgorithm, String provider, boolean hasRSAdata)
       throws InvalidKeyException, NoSuchProviderException,
       NoSuchAlgorithmException {
-    this.privKey = privKey;
     this.provider = provider;
 
     digestAlgorithm = (String) allowedDigests.get(hashAlgorithm.toUpperCase());
@@ -693,8 +901,7 @@ public class PdfPKCS7 {
         byte msd[] = messageDigest.digest();
         messageDigest.update(msd);
       }
-      verifyResult = (Arrays.equals(messageDigest.digest(), digestAttr) && sig
-          .verify(digest));
+      verifyResult = (Arrays.equals(messageDigest.digest(), digestAttr) && sig.verify(digest));
     } else {
       if (RSAdata != null)
         sig.update(messageDigest.digest());
@@ -824,7 +1031,7 @@ public class PdfPKCS7 {
    * @return the algorithm used to calculate the message digest
    */
   public String getDigestAlgorithm() {
-    String dea = getAlgorithm(digestEncryptionAlgorithm);
+   String dea = getAlgorithm(digestEncryptionAlgorithm);
     if (dea == null)
       dea = digestEncryptionAlgorithm;
 
