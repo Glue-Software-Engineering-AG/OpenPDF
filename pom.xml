@@ -6,7 +6,7 @@
     <groupId>com.github.glue</groupId>
     <artifactId>openpdf-parent</artifactId>
     <packaging>pom</packaging>
-    <version>1.0.8-SNAPSHOT</version>
+    <version>1.0.8</version>
 
     <licenses>
         <license>
