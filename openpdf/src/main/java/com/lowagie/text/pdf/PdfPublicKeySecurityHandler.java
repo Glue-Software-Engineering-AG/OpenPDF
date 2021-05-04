@@ -106,13 +106,7 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
-import org.bouncycastle.asn1.ASN1InputStream;
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.ASN1Set;
-import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.DEROutputStream;
-import org.bouncycastle.asn1.DERSet;
+import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.ContentInfo;
 import org.bouncycastle.asn1.cms.EncryptedContentInfo;
 import org.bouncycastle.asn1.cms.EnvelopedData;
@@ -209,7 +203,7 @@ public class PdfPublicKeySecurityHandler {
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-    DEROutputStream k = new DEROutputStream(baos);
+    final ASN1OutputStream k = ASN1OutputStream.create(baos, ASN1Encoding.DER);
 
     k.writeObject(obj);
 
@@ -220,19 +214,19 @@ public class PdfPublicKeySecurityHandler {
     return cms;
   }
 
-  public PdfArray getEncodedRecipients() throws IOException,
-      GeneralSecurityException {
-    PdfArray EncodedRecipients = new PdfArray();
-    byte[] cms = null;
-    for (int i = 0; i < recipients.size(); i++)
+  public PdfArray getEncodedRecipients() throws IOException {
+    PdfArray encodedRecipients = new PdfArray();
+    byte[] cms;
+    for (int i = 0; i < recipients.size(); i++) {
       try {
         cms = getEncodedRecipient(i);
-        EncodedRecipients.add(new PdfLiteral(PdfContentByte.escapeString(cms)));
+        encodedRecipients.add(new PdfLiteral(PdfContentByte.escapeString(cms)));
       } catch (GeneralSecurityException | IOException e) {
-        EncodedRecipients = null;
+        encodedRecipients = null;
+        break;
       }
-
-    return EncodedRecipients;
+    }
+    return encodedRecipients;
   }
 
   private ASN1Primitive createDERForRecipient(byte[] in, X509Certificate cert)

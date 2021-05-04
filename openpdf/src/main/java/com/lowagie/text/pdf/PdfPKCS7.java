@@ -77,24 +77,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import org.bouncycastle.asn1.ASN1EncodableVector;
-import org.bouncycastle.asn1.ASN1Encoding;
-import org.bouncycastle.asn1.ASN1InputStream;
-import org.bouncycastle.asn1.ASN1Integer;
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.ASN1OutputStream;
-import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.ASN1Sequence;
-import org.bouncycastle.asn1.ASN1Set;
-import org.bouncycastle.asn1.ASN1String;
-import org.bouncycastle.asn1.ASN1TaggedObject;
-import org.bouncycastle.asn1.DERNull;
-import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.DERSequence;
-import org.bouncycastle.asn1.DERSet;
-import org.bouncycastle.asn1.DERTaggedObject;
-import org.bouncycastle.asn1.DERUTCTime;
+import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.AttributeTable;
 import org.bouncycastle.asn1.cms.ContentInfo;
@@ -114,10 +97,9 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.tsp.TimeStampToken;
 import com.lowagie.text.ExceptionConverter;
 import com.lowagie.text.error_messages.MessageLocalization;
-import org.bouncycastle.asn1.ASN1Enumerated;
+
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
-import org.bouncycastle.asn1.BERTaggedObject;
 
 /**
  * This class does all the processing related to signing and verifying a PKCS#7
@@ -439,11 +421,8 @@ public class PdfPKCS7 {
         throw new IllegalArgumentException(
             MessageLocalization
                 .getComposedMessage("not.a.valid.pkcs.7.object.not.signed.data"));
-      ASN1Sequence content = (ASN1Sequence) (
-          (signedData.getObjectAt(1) instanceof BERTaggedObject) ?
-          (BERTaggedObject) signedData.getObjectAt(1) :
-          (DERTaggedObject) signedData.getObjectAt(1))
-          .getObject();
+
+      ASN1Sequence content = (ASN1Sequence)((ASN1TaggedObject)(signedData.getObjectAt(1))).getObject();
       // the positions that we care are:
       // 0 - version
       // 1 - digestAlgorithms
@@ -477,7 +456,7 @@ public class PdfPKCS7 {
       // the possible ID_PKCS7_DATA
       ASN1Sequence rsaData = (ASN1Sequence) content.getObjectAt(2);
       if (rsaData.size() > 1) {
-        DEROctetString rsaDataContent = (DEROctetString) ((DERTaggedObject) rsaData
+        DEROctetString rsaDataContent = (DEROctetString) ((ASN1TaggedObject) rsaData
             .getObjectAt(1)).getObject();
         RSAdata = rsaDataContent.getOctets();
       }
@@ -485,8 +464,9 @@ public class PdfPKCS7 {
       // the signerInfos
       int next = 3;
       while (content.getObjectAt(next) instanceof DERTaggedObject ||
-             content.getObjectAt(next) instanceof BERTaggedObject)
-        ++next;
+             content.getObjectAt(next) instanceof BERTaggedObject ||
+             content.getObjectAt(next) instanceof DLTaggedObject)
+      ++next;
       ASN1Set signerInfos = (ASN1Set) content.getObjectAt(next);
       if (signerInfos.size() != 1)
         throw new IllegalArgumentException(
@@ -1581,7 +1561,7 @@ public class PdfPKCS7 {
       // Add the digestAlgorithm
       v = new ASN1EncodableVector();
       v.add(new ASN1ObjectIdentifier(digestAlgorithm));
-      v.add(new DERNull());
+      v.add(DERNull.INSTANCE);
       signerinfo.add(new DERSequence(v));
 
       // add the authenticated attribute if present
@@ -1592,7 +1572,7 @@ public class PdfPKCS7 {
       // Add the digestEncryptionAlgorithm
       v = new ASN1EncodableVector();
       v.add(new ASN1ObjectIdentifier(digestEncryptionAlgorithm));
-      v.add(new DERNull());
+      v.add(DERNull.INSTANCE);
       signerinfo.add(new DERSequence(v));
 
       // Add the digest
@@ -2035,6 +2015,12 @@ public class PdfPKCS7 {
       Enumeration e = seq.getObjects();
 
       while (e.hasMoreElements()) {
+        if (e.nextElement() instanceof ASN1UTCTime)
+        {
+          ASN1UTCTime time = (ASN1UTCTime) e.nextElement();
+          continue;
+        }
+
         ASN1Set set = (ASN1Set) e.nextElement();
 
         for (int i = 0; i < set.size(); i++) {

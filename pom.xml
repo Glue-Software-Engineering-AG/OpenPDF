@@ -6,7 +6,7 @@
     <groupId>com.github.glue</groupId>
     <artifactId>openpdf-parent</artifactId>
     <packaging>pom</packaging>
-    <version>1.0.8</version>
+    <version>1.0.9</version>
 
     <licenses>
         <license>
@@ -48,7 +48,7 @@
         <maven.jar.plugin.version>2.5</maven.jar.plugin.version>
         <maven.plugin.repository.version>2.3.1</maven.plugin.repository.version>
         <maven.plugin.bundle.version>3.2.0</maven.plugin.bundle.version>
-        <bouncycastle.version>1.58</bouncycastle.version>
+        <bouncycastle.version>1.68</bouncycastle.version>
     </properties>
     <!-- Support for compilation under java 8 -->
     <profiles>

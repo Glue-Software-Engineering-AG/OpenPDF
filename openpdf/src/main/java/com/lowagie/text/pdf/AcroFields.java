@@ -1498,6 +1498,16 @@ public class AcroFields {
     }
 
     /**
+     * Gets all the fields. The fields are keyed by the fully qualified field name and the value is an instance of
+     * <CODE>AcroFields.Item</CODE>.
+     *
+     * @return all the fields
+     */
+    public Map<String, Item> getAllFields() {
+        return fields;
+    }
+
+    /**
      * Gets the field structure.
      * 
      * @param name the name of the field
@@ -2027,6 +2037,10 @@ public class AcroFields {
                 return true;
             return hits.containsKey(n);
         }
+    }
+
+    public List<String> getSignedFieldNames() {
+        return (List<String>) getSignatureNames();
     }
 
     /**
