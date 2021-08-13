@@ -18,8 +18,7 @@ public class PdfPKCS7Test
   @Test public void test_sha512_signature_rsa_pss() throws IOException, SignatureException
   {
     Security.addProvider(new BouncyCastleProvider());
-    PdfReader reader = new PdfReader(
-        PdfPKCS7Test.class.getResourceAsStream("/rsapss/SHA512 Problem Elektronische Signatur Test.pdf"));
+    PdfReader reader = new PdfReader(PdfPKCS7Test.class.getResourceAsStream("/rsapss/sha512_rsa_pss.pdf"));
     AcroFields fields = reader.getAcroFields();
     ArrayList<String> sigNames = fields.getSignatureNames();
     for (String sigName : sigNames)
@@ -29,9 +28,17 @@ public class PdfPKCS7Test
     }
   }
 
-  @Test public void test_sha256_signature_rsa_pss()
+  @Test public void test_sha256_signature_rsa_pss() throws SignatureException, IOException
   {
-
+    Security.addProvider(new BouncyCastleProvider());
+    PdfReader reader = new PdfReader(PdfPKCS7Test.class.getResourceAsStream("/rsapss/sha256_rsa_pss.pdf"));
+    AcroFields fields = reader.getAcroFields();
+    ArrayList<String> sigNames = fields.getSignatureNames();
+    for (String sigName : sigNames)
+    {
+      PdfPKCS7 result = fields.verifySignature(sigName, "BC");
+      Assert.assertTrue(result.verify());
+    }
   }
 
   /**
@@ -44,8 +51,7 @@ public class PdfPKCS7Test
   @Test public void dump_asn1() throws IOException
   {
     Security.addProvider(new BouncyCastleProvider());
-    PdfReader reader = new PdfReader(
-        PdfPKCS7Test.class.getResourceAsStream("/rsapss/SHA512 Problem Elektronische Signatur Test.pdf"));
+    PdfReader reader = new PdfReader(PdfPKCS7Test.class.getResourceAsStream("/rsapss/sha512_rsa_pss.pdf"));
     AcroFields fields = reader.getAcroFields();
     ArrayList<String> sigNames = fields.getSignatureNames();
     for (String sigName : sigNames)
