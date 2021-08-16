@@ -77,24 +77,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import org.bouncycastle.asn1.ASN1EncodableVector;
-import org.bouncycastle.asn1.ASN1Encoding;
-import org.bouncycastle.asn1.ASN1InputStream;
-import org.bouncycastle.asn1.ASN1Integer;
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.ASN1OutputStream;
-import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.ASN1Sequence;
-import org.bouncycastle.asn1.ASN1Set;
-import org.bouncycastle.asn1.ASN1String;
-import org.bouncycastle.asn1.ASN1TaggedObject;
-import org.bouncycastle.asn1.DERNull;
-import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.DERSequence;
-import org.bouncycastle.asn1.DERSet;
-import org.bouncycastle.asn1.DERTaggedObject;
-import org.bouncycastle.asn1.DERUTCTime;
+import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.AttributeTable;
 import org.bouncycastle.asn1.cms.ContentInfo;
@@ -114,10 +97,9 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.tsp.TimeStampToken;
 import com.lowagie.text.ExceptionConverter;
 import com.lowagie.text.error_messages.MessageLocalization;
-import org.bouncycastle.asn1.ASN1Enumerated;
+
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
-import org.bouncycastle.asn1.BERTaggedObject;
 
 /**
  * This class does all the processing related to signing and verifying a PKCS#7
@@ -464,8 +446,6 @@ public class PdfPKCS7 {
         digestalgos.add(o.getId());
       }
 
-      PSSParameterSpec sigParameters = getRSASSAPSSParameterSpec(content.getObjectAt(3));
-
       // the certificates and crls
       X509CertParser cr = new X509CertParser();
       cr.engineInit(new ByteArrayInputStream(contentsKey));
@@ -554,8 +534,16 @@ public class PdfPKCS7 {
                   .getComposedMessage("authenticated.attribute.is.missing.the.digest"));
         ++next;
       }
-      digestEncryptionAlgorithm = ((ASN1ObjectIdentifier) ((ASN1Sequence) signerInfo
-          .getObjectAt(next++)).getObjectAt(0)).getId();
+      // [3 oder 4] in signerInfo
+      // [3 oder 4][0] -> contains digestEncryptionAlgo
+      // [3 oder 4][1] -> contains params
+      ASN1Encodable digestEncryptionAlgorithmAsn1 = signerInfo.getObjectAt(next++);
+
+      ASN1Encodable digestEncryptionAlgoAsn1 = ((ASN1Sequence) digestEncryptionAlgorithmAsn1).getObjectAt(0);
+      digestEncryptionAlgorithm = ((ASN1ObjectIdentifier) digestEncryptionAlgoAsn1).getId();
+
+      PSSParameterSpec sigParameters = getRSASSAPSSParameterSpec(digestEncryptionAlgorithmAsn1);
+
       digest = ((DEROctetString) signerInfo.getObjectAt(next++)).getOctets();
       if (next < signerInfo.size()
           && (signerInfo.getObjectAt(next) instanceof DERTaggedObject)) {
@@ -597,7 +585,7 @@ public class PdfPKCS7 {
   }
 
   /**
-   * To validate a signature created with RSASSA/PSS the Signature object must be equiped with an
+   * To validate a signature created with RSASSA/PSS the Signature object must be equipped with an
    * AlgorithmParameterSpec. This method is able to read the ASN1 structure and pull these values. Default values are
    * applied where no explicit ones are given.
    * 
@@ -633,41 +621,17 @@ public class PdfPKCS7 {
    */
     private PSSParameterSpec getRSASSAPSSParameterSpec(Object possibleSignatureInformation)
     {
-      if (!(possibleSignatureInformation instanceof DERTaggedObject))
-      {
+      if (!(possibleSignatureInformation instanceof DERSequence)){
         return null;
       }
-      DERTaggedObject d = (DERTaggedObject)possibleSignatureInformation;
 
-      if (!(d.getObject() instanceof ASN1Sequence))
-      {
-        return null;
-      }
-      ASN1Sequence ds = (ASN1Sequence)d.getObject();
+      DERSequence infos = (DERSequence) possibleSignatureInformation;
 
-      if (!(ds.getObjectAt(0) instanceof ASN1Sequence))
+      if (!(infos.getObjectAt(0) instanceof ASN1ObjectIdentifier))
       {
         return null;
       }
-      ASN1Sequence dss = (ASN1Sequence)ds.getObjectAt(0);
-
-      if (!(dss.getObjectAt(0) instanceof ASN1Sequence))
-      {
-        return null;
-      }
-      ASN1Sequence dsss = (ASN1Sequence)dss.getObjectAt(0);
-
-      if (!(dsss.getObjectAt(2) instanceof ASN1Sequence))
-      {
-        return null;
-      }
-      ASN1Sequence dssss = (ASN1Sequence)dsss.getObjectAt(2);
-
-      if (!(dssss.getObjectAt(0) instanceof ASN1ObjectIdentifier))
-      {
-        return null;
-      }
-      ASN1ObjectIdentifier dsssso = (ASN1ObjectIdentifier)dssss.getObjectAt(0);
+      ASN1ObjectIdentifier dsssso = (ASN1ObjectIdentifier)infos.getObjectAt(0);
 
       String encAlgOid = dsssso.getId();
 
@@ -677,11 +641,11 @@ public class PdfPKCS7 {
       }
           
       // climb down the hierarchy
-      if (!(dssss.getObjectAt(1) instanceof ASN1Sequence))
+      if (!(infos.getObjectAt(1) instanceof ASN1Sequence))
       { 
         return PSSParameterSpec.DEFAULT;
       }
-      ASN1Sequence dsssss = (ASN1Sequence)dssss.getObjectAt(1);
+      ASN1Sequence dsssss = (ASN1Sequence)infos.getObjectAt(1);
       
       // go for the digest algorithm
       if (!(dsssss.getObjectAt(0) instanceof DERTaggedObject))
