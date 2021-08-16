@@ -41,6 +41,19 @@ public class PdfPKCS7Test
     }
   }
 
+  @Test public void test_sha256_with_rsa() throws IOException, SignatureException
+  {
+    Security.addProvider(new BouncyCastleProvider());
+    PdfReader reader = new PdfReader(PdfPKCS7Test.class.getResourceAsStream("/pkcs1_15/pkcs1_v15.pdf"));
+    AcroFields fields = reader.getAcroFields();
+    ArrayList<String> sigNames = fields.getSignatureNames();
+    for (String sigName : sigNames)
+    {
+      PdfPKCS7 result = fields.verifySignature(sigName, "BC");
+      Assert.assertTrue(result.verify());
+    }
+  }
+
   /**
    * Dumps the ASN1 structure to System.out or a File.
    * <p>
