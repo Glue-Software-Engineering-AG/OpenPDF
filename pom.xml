@@ -219,4 +219,17 @@
         </dependencies>
     </dependencyManagement>
 
+    <distributionManagement>
+        <repository>
+            <id>internal.repo</id>
+            <name>maven.infra.glue-releases</name>
+            <url>http://james.infra.glue:8081/artifactory/libs-release-local</url>
+        </repository>
+
+        <snapshotRepository>
+            <id>internal.repo-snapshot</id>
+            <name>develop1.glue.ch-snapshots</name>
+            <url>http://james.infra.glue:8081/artifactory/libs-snapshot-local</url>
+        </snapshotRepository>
+    </distributionManagement>
 </project>
